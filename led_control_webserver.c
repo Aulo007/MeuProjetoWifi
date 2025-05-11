@@ -7,27 +7,34 @@
  * https://www.raspberrypi.com/documentation/pico-sdk/networking.html#group_pico_cyw43_arch_1ga33cca1c95fc0d7512e7fef4a59fd7475
  */
 
-#include <stdio.h>  // Biblioteca padrão para entrada e saída
-#include <string.h> // Biblioteca manipular strings
-#include <stdlib.h> // funções para realizar várias operações, incluindo alocação de memória dinâmica (malloc)
-
+#include <stdio.h>           // Biblioteca padrão para entrada e saída
+#include <string.h>          // Biblioteca manipular strings
+#include <stdlib.h>          // funções para realizar várias operações, incluindo alocação de memória dinâmica (malloc)
 #include "pico/stdlib.h"     // Biblioteca da Raspberry Pi Pico para funções padrão (GPIO, temporização, etc.)
 #include "hardware/adc.h"    // Biblioteca da Raspberry Pi Pico para manipulação do conversor ADC
 #include "pico/cyw43_arch.h" // Biblioteca para arquitetura Wi-Fi da Pico com CYW43
-
-#include "lwip/pbuf.h"  // Lightweight IP stack - manipulação de buffers de pacotes de rede
-#include "lwip/tcp.h"   // Lightweight IP stack - fornece funções e estruturas para trabalhar com o protocolo TCP
-#include "lwip/netif.h" // Lightweight IP stack - fornece funções e estruturas para trabalhar com interfaces de rede (netif)
+#include "lwip/pbuf.h"       // Lightweight IP stack - manipulação de buffers de pacotes de rede
+#include "lwip/tcp.h"        // Lightweight IP stack - fornece funções e estruturas para trabalhar com o protocolo TCP
+#include "lwip/netif.h"      // Lightweight IP stack - fornece funções e estruturas para trabalhar com interfaces de rede (netif)
+#include "lib/matrizRGB.h"
+#include "lib/ssd1306.h"
 
 // Credenciais WIFI - Tome cuidado se publicar no github!
-#define WIFI_SSID "Senha"
-#define WIFI_PASSWORD "Senha"
+#define WIFI_SSID "RaGus2.5GHZ"
+#define WIFI_PASSWORD "#RaGus2.5GHZ6258"
 
 // Definição dos pinos dos LEDs
 #define LED_PIN CYW43_WL_GPIO_LED_PIN // GPIO do CI CYW43
 #define LED_BLUE_PIN 12               // GPIO12 - LED azul
 #define LED_GREEN_PIN 11              // GPIO11 - LED verde
 #define LED_RED_PIN 13                // GPIO13 - LED vermelho
+static const uint VRY_PIN = 27;
+static const uint VRX_PIN = 26;
+#define I2C_PORT i2c1
+#define I2C_SDA 14
+#define I2C_SCL 15
+#define I2C_ADDR 0x3C
+static ssd1306_t ssd;
 
 volatile int sala_estado = 0;
 volatile int cozinha_estado = 0;
@@ -49,6 +56,29 @@ float temp_read(void);
 // Tratamento do request do usuário
 void user_request(char **request);
 
+void init_i2c()
+{
+    i2c_init(I2C_PORT, 400 * 1000);
+    gpio_set_function(I2C_SDA, GPIO_FUNC_I2C);
+    gpio_set_function(I2C_SCL, GPIO_FUNC_I2C);
+    gpio_pull_up(I2C_SDA);
+    gpio_pull_up(I2C_SCL);
+}
+
+void init_display()
+{
+    ssd1306_init(&ssd, 128, 64, false, I2C_ADDR, I2C_PORT);
+    ssd1306_config(&ssd);
+    ssd1306_send_data(&ssd);
+}
+
+void init_joystick_adc()
+{
+    adc_init();
+    adc_gpio_init(VRX_PIN);
+    adc_gpio_init(VRY_PIN);
+}
+
 // Função principal
 int main()
 {
@@ -57,6 +87,11 @@ int main()
 
     // Inicializar os Pinos GPIO para acionamento dos LEDs da BitDogLab
     gpio_led_bitdog();
+
+    init_i2c();
+    init_display();
+    init_joystick_adc();
+    npInit(7);
 
     // Inicializa a arquitetura do cyw43
     while (cyw43_arch_init())
@@ -74,7 +109,7 @@ int main()
 
     // Conectar à rede WiFI - fazer um loop até que esteja conectado
     printf("Conectando ao Wi-Fi...\n");
-    while (cyw43_arch_wifi_connect_timeout_ms(WIFI_SSID, WIFI_PASSWORD, CYW43_AUTH_WPA2_AES_PSK, 20000))
+    while (cyw43_arch_wifi_connect_timeout_ms(WIFI_SSID, WIFI_PASSWORD, CYW43_AUTH_WPA2_AES_PSK, 30000))
     {
         printf("Falha ao conectar ao Wi-Fi\n");
         sleep_ms(100);
@@ -162,40 +197,84 @@ void user_request(char **request)
     if (strstr(*request, "GET /sala_on") != NULL)
     {
         sala_estado = 1;
+        ssd1306_fill(&ssd, false);
+        ssd1306_send_data(&ssd);
         gpio_put(LED_BLUE_PIN, 1);
+        npSetLED(0, 0, COLOR_BLUE); // Azul
+        npSetLED(0, 1, COLOR_BLUE); // Azul
+        npSetLED(1, 0, COLOR_BLUE); // Azul
+        npSetLED(1, 1, COLOR_BLUE); // Azul
+        npWrite();
     }
     else if (strstr(*request, "GET /sala_off") != NULL)
     {
-         gpio_put(LED_BLUE_PIN, 0);
+        gpio_put(LED_BLUE_PIN, 0);
+        npSetLED(0, 0, COLOR_BLACK); // DESLIGADO
+        npSetLED(0, 1, COLOR_BLACK); // DESLIGADO
+        npSetLED(1, 0, COLOR_BLACK); // DESLIGADO
+        npSetLED(1, 1, COLOR_BLACK); // Azul
+        npWrite();
         sala_estado = 0;
     }
     else if (strstr(*request, "GET /cozinha_on") != NULL)
     {
-         gpio_put(LED_RED_PIN, 1);
+        gpio_put(LED_RED_PIN, 1);
+        npSetLED(3, 0, COLOR_RED); // Azul
+        npSetLED(4, 0, COLOR_RED); // Azul
+        npSetLED(3, 1, COLOR_RED); // Azul
+        npSetLED(4, 1, COLOR_RED); // Azul
+        npWrite();
+
         cozinha_estado = 1;
     }
     else if (strstr(*request, "GET /cozinha_off") != NULL)
     {
         gpio_put(LED_RED_PIN, 0);
+        npSetLED(3, 0, COLOR_BLACK); // Azul
+        npSetLED(4, 0, COLOR_BLACK); // Azul
+        npSetLED(3, 1, COLOR_BLACK); // Azul
+        npSetLED(4, 1, COLOR_BLACK); // Azul
+        npWrite();
         cozinha_estado = 0;
     }
     else if (strstr(*request, "GET /quarto_on") != NULL)
     {
         gpio_put(LED_GREEN_PIN, 1);
+        npSetLED(0, 3, COLOR_GREEN); // Azul
+        npSetLED(0, 4, COLOR_GREEN); // Azul
+        npSetLED(1, 3, COLOR_GREEN); // Azul
+        npSetLED(1, 4, COLOR_GREEN); // Azul
+        npWrite();
         quarto_estado = 1;
     }
     else if (strstr(*request, "GET /quarto_off") != NULL)
     {
         gpio_put(LED_GREEN_PIN, 0);
+        npSetLED(0, 3, COLOR_BLACK); // Azul
+        npSetLED(0, 4, COLOR_BLACK); // Azul
+        npSetLED(1, 3, COLOR_BLACK); // Azul
+        npSetLED(1, 4, COLOR_BLACK); // Azul
+        npWrite();
         quarto_estado = 0;
     }
     else if (strstr(*request, "GET /banheiro_on") != NULL)
     {
 
+        npSetLED(3, 3, COLOR_VIOLET); // Azul
+        npSetLED(3, 4, COLOR_VIOLET); // Azul
+        npSetLED(4, 3, COLOR_VIOLET); // Azul
+        npSetLED(4, 4, COLOR_VIOLET); // Azul
+        npWrite();
         banheiro_estado = 1;
     }
     else if (strstr(*request, "GET /banheiro_off") != NULL)
     {
+        gpio_put(LED_GREEN_PIN, 0);
+        npSetLED(3, 3, COLOR_BLACK); // Azul
+        npSetLED(3, 4, COLOR_BLACK); // Azul
+        npSetLED(4, 3, COLOR_BLACK); // Azul
+        npSetLED(4, 4, COLOR_BLACK); // Azul
+        npWrite();
         banheiro_estado = 0;
     }
 }
@@ -236,7 +315,7 @@ static err_t tcp_server_recv(void *arg, struct tcp_pcb *tpcb, struct pbuf *p, er
     char qualidade_ar[20] = "Boa";
 
     // Cria a resposta HTML
-    char html[1024]; 
+    char html[1024];
 
     // Instruções html do webserver
     snprintf(html, sizeof(html),

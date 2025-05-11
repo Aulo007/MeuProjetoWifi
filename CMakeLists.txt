@@ -8,7 +8,7 @@ set(sdkVersion 1.5.1)
 set(toolchainVersion 13_2_Rel1)
 set(picotoolVersion 2.0.0)
 set(picoVscode ${USERHOME}/.pico-sdk/cmake/pico-vscode.cmake)
-if (EXISTS ${picoVscode})
+if(EXISTS ${picoVscode})
     include(${picoVscode})
 endif()
 # ====================================================================================
@@ -22,7 +22,7 @@ set(sdkVersion 1.5.1)
 set(toolchainVersion 13_2_Rel1)
 set(picotoolVersion 2.0.0)
 set(picoVscode ${USERHOME}/.pico-sdk/cmake/pico-vscode.cmake)
-if (EXISTS ${picoVscode})
+if(EXISTS ${picoVscode})
     include(${picoVscode})
 endif()
 # ====================================================================================
@@ -36,7 +36,7 @@ set(sdkVersion 1.5.1)
 set(toolchainVersion 13_2_Rel1)
 set(picotoolVersion 2.0.0)
 set(picoVscode ${USERHOME}/.pico-sdk/cmake/pico-vscode.cmake)
-if (EXISTS ${picoVscode})
+if(EXISTS ${picoVscode})
     include(${picoVscode})
 endif()
 # ====================================================================================
@@ -61,7 +61,7 @@ set(sdkVersion 1.5.1)
 set(toolchainVersion 13_2_Rel1)
 set(picotoolVersion 2.0.0)
 set(picoVscode ${USERHOME}/.pico-sdk/cmake/pico-vscode.cmake)
-if (EXISTS ${picoVscode})
+if(EXISTS ${picoVscode})
     include(${picoVscode})
 endif()
 # ====================================================================================
@@ -77,7 +77,7 @@ pico_sdk_init()
 
 # Add executable. Default name is the project name, version 0.1
 
-add_executable(led_control_webserver led_control_webserver.c )
+add_executable(led_control_webserver led_control_webserver.c lib/ssd1306.c lib/matrizRGB.c)
 
 pico_set_program_name(led_control_webserver "led_control_webserver")
 pico_set_program_version(led_control_webserver "0.1")
@@ -86,12 +86,23 @@ pico_set_program_version(led_control_webserver "0.1")
 pico_enable_stdio_uart(led_control_webserver 0)
 pico_enable_stdio_usb(led_control_webserver 1)
 
+pico_generate_pio_header(led_control_webserver ${CMAKE_CURRENT_LIST_DIR}/ws2818b.pio)
+
 # Add the standard library to the build
 target_link_libraries(led_control_webserver
-        pico_stdlib
-        hardware_gpio
-        hardware_adc
-        pico_cyw43_arch_lwip_threadsafe_background
+    pico_stdlib
+    hardware_gpio
+    hardware_adc
+    pico_cyw43_arch_lwip_threadsafe_background
+    pico_bootrom
+
+
+    hardware_pwm
+    hardware_i2c
+    hardware_pio
+    hardware_clocks
+
+
 )
 
 # Add the standard include files to the build
