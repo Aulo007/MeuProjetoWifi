@@ -289,6 +289,91 @@ float temp_read(void)
     return temperature;
 }
 
+float umidade_read(void)
+{
+    adc_select_input(0);
+    uint16_t adc_y = adc_read();
+    printf("ADC Y: %d\n", adc_y); // Para debug
+
+    // Valor padrão do joystick (posição neutra) e limites
+    uint16_t baseline = 1997;
+    uint16_t margem_erro = 50;
+    uint16_t valor_min = 11;
+    uint16_t valor_max = 4073;
+
+    // Calcular umidade relativa (%)
+    // Considerando que o ponto central (baseline) é aproximadamente 50% de umidade
+    // e os extremos representam 0% e 100%
+    float umidade;
+
+    if (adc_y <= valor_min)
+    {
+        umidade = 0.0;
+    }
+    else if (adc_y >= valor_max)
+    {
+        umidade = 100.0;
+    }
+    else if (adc_y < baseline)
+    {
+        // Valor abaixo do baseline (0% a 50%)
+        umidade = 50.0 * ((float)(adc_y - valor_min) / (baseline - valor_min));
+    }
+    else
+    {
+        // Valor acima do baseline (50% a 100%)
+        umidade = 50.0 + 50.0 * ((float)(adc_y - baseline) / (valor_max - baseline));
+    }
+
+    printf("Umidade relativa: %.1f%%\n", umidade);
+    return umidade;
+}
+
+
+const char *qualidade_ar_read(void)
+{
+    adc_select_input(1);
+    uint16_t adc_x = adc_read();
+    printf("ADC X: %d\n", adc_x); // Para debug
+
+    // Valor padrão do joystick (posição neutra)
+    uint16_t baseline = 2050;
+    uint16_t margem_erro = 50;
+    uint16_t valor_min = 11;
+    uint16_t valor_max = 4073;
+
+    // Calculando o desvio da posição neutra (INVERTIDO: negativo = mais poluição)
+    int16_t delta = adc_x - baseline;
+    printf("Delta qualidade: %d\n", delta);
+
+    // Classificação baseada no desvio da posição central COM LÓGICA INVERTIDA
+    if (delta < -1000)
+    {
+        // Adc_x < 1050 (muito desviado para esquerda)
+        return "RUIM";
+    }
+    else if (delta < -400)
+    {
+        // Adc_x entre 1650 e 1050
+        return "MODERADA";
+    }
+    else if (abs(delta) <= margem_erro)
+    {
+        // Dentro da margem de erro do ponto central (neutro)
+        return "BOA";
+    }
+    else if (delta > 400)
+    {
+        // Adc_x > 2450 (muito para direita)
+        return "EXCELENTE";
+    }
+    else
+    {
+        // Para pequenos desvios positivos
+        return "BOA";
+    }
+}
+
 // Função de callback para processar requisições HTTP
 static err_t tcp_server_recv(void *arg, struct tcp_pcb *tpcb, struct pbuf *p, err_t err)
 {
@@ -311,8 +396,8 @@ static err_t tcp_server_recv(void *arg, struct tcp_pcb *tpcb, struct pbuf *p, er
 
     // Leitura da temperatura interna
     float temperatura = temp_read();
-    int umidade = 60;
-    char qualidade_ar[20] = "Boa";
+    int umidade = umidade_read();
+    const char *qualidade_ar = qualidade_ar_read();
 
     // Cria a resposta HTML
     char html[1024];
