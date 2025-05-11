@@ -329,7 +329,6 @@ float umidade_read(void)
     return umidade;
 }
 
-
 const char *qualidade_ar_read(void)
 {
     adc_select_input(1);
@@ -374,6 +373,30 @@ const char *qualidade_ar_read(void)
     }
 }
 
+void update_display(ssd1306_t *ssd, float temperatura, int umidade, const char *qualidade_ar)
+{
+    // Limpa o display
+    ssd1306_fill(ssd, false);
+    
+    // Temperatura na primeira linha
+    char temp_str[32];
+    sprintf(temp_str, "Temp: %.1f C", temperatura);
+    ssd1306_draw_string(ssd, temp_str, 0, 5);
+    
+    // Umidade na segunda linha
+    char umid_str[32];
+    sprintf(umid_str, "Umidade: %d%%", umidade);
+    ssd1306_draw_string(ssd, umid_str, 0, 25);
+    
+    // Qualidade do ar na terceira linha
+    char qual_str[32];
+    sprintf(qual_str, "Qualidade: %s", qualidade_ar);
+    ssd1306_draw_string(ssd, qual_str, 0, 45);
+    
+    // Atualiza o display
+    ssd1306_send_data(ssd);
+}
+
 // Função de callback para processar requisições HTTP
 static err_t tcp_server_recv(void *arg, struct tcp_pcb *tpcb, struct pbuf *p, err_t err)
 {
@@ -398,6 +421,8 @@ static err_t tcp_server_recv(void *arg, struct tcp_pcb *tpcb, struct pbuf *p, er
     float temperatura = temp_read();
     int umidade = umidade_read();
     const char *qualidade_ar = qualidade_ar_read();
+
+    update_display(&ssd, temperatura, umidade, qualidade_ar);
 
     // Cria a resposta HTML
     char html[1024];
